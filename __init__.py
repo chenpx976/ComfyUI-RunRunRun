@@ -1,14 +1,20 @@
+import base64
 import time
 from aiohttp import web
 import server
 import os
 import requests
+import asyncio
 import execution
 import uuid
 import logging
+import urllib.request
+import urllib.parse
+
+import aiohttp
 
 # 轮询间隔
-COMFY_POLLING_INTERVAL_MS = 250
+COMFY_POLLING_INTERVAL_MS = 500
 # Maximum number of poll attempts
 COMFY_POLLING_MAX_RETRIES = 1000
 # Host where ComfyUI is running
@@ -65,6 +71,29 @@ async def get_history(prompt_id):
     return prompt_server.prompt_queue.get_history(prompt_id=prompt_id)
 
 
+import aiohttp
+from urllib.parse import urlencode
+
+
+def get_image_url(filename, subfolder, folder_type):
+    data = {"filename": filename, "subfolder": subfolder, "type": folder_type}
+    url = f"http://{COMFY_HOST}/view?" + urlencode(data)
+    return url
+
+
+async def get_image(filename, subfolder, folder_type):
+    url = get_image_url(filename, subfolder, folder_type)
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as response:
+            if response.status == 200:
+                image_data = await response.read()
+                # 将图片数据转换为 Base64 编码
+                base64_encoded = base64.b64encode(image_data).decode("utf-8")
+                return base64_encoded
+            else:
+                raise Exception(f"Failed to get image, status code: {response.status}")
+
+
 @server.PromptServer.instance.routes.post("/comfyui-run/run")
 async def comfy_run_run(request):
     print("[comfy_run_run]")
@@ -85,16 +114,24 @@ async def comfy_run_run(request):
                 break
             else:
                 # Wait before trying again
-                time.sleep(COMFY_POLLING_INTERVAL_MS / 1000)
+                await asyncio.sleep(COMFY_POLLING_INTERVAL_MS / 1000)  # 修改这里
                 retries += 1
         else:
             return {"error": "Max retries reached while waiting for image generation"}
     except Exception as e:
         return {"error": f"Error waiting for image generation: {str(e)}"}
+    node_outputs = history[prompt_id]["outputs"]
+
+    for node_id, node_output in node_outputs.items():
+        if "images" in node_output:
+            for image in node_output["images"]:
+                image_url = get_image_url(
+                    image["filename"], image["subfolder"], image["type"]
+                )
+                image["image_url"] = image_url
 
     status = 200
-    # res = {"error": "no prompt", "node_errors": [], "json_data": json_data}
-    return web.json_response(history, status=status)
+    return web.json_response(node_outputs, status=status)
 
 
 NODE_CLASS_MAPPINGS = {}
