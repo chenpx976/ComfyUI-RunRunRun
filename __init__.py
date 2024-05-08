@@ -96,7 +96,9 @@ async def get_image(filename, subfolder, folder_type):
 
 @server.PromptServer.instance.routes.post("/comfyui-run/run")
 async def comfy_run_run(request):
-    print("[comfy_run_run]")
+    host = request.host
+    print("[comfy_run_run]", host)
+    # 拿到当前请求的 host
     prompt_response = await post_prompt(request)
     print("[comfy_run_run]:response", prompt_response)
     prompt_id = prompt_response.get("prompt_id")
@@ -128,6 +130,8 @@ async def comfy_run_run(request):
                 image_url = get_image_url(
                     image["filename"], image["subfolder"], image["type"]
                 )
+                # image_url 需要替换 host 为当前请求的 host
+                image_url = image_url.replace(COMFY_HOST, host)
                 image["image_url"] = image_url
 
     status = 200
