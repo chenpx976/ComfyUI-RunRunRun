@@ -1,0 +1,14 @@
+[project]
+name = "comfyui-runrunrun"
+description = "add http api http://127.0.0.1:8188/comfyui-run/run use in other llm project."
+version = "1.0.0"
+license = "LICENSE"
+
+[project.urls]
+Repository = "https://github.com/chenpx976/ComfyUI-RunRunRun"
+#  Used by Comfy Registry https://comfyregistry.org
+
+[tool.comfy]
+PublisherId = ""
+DisplayName = "ComfyUI-RunRunRun"
+Icon = ""
